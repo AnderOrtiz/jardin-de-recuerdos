@@ -1,4 +1,9 @@
+import "./styles/styles.css";
 import { initDB } from "./db/database";
+import { iniciar } from "./controllers/jardinController";
+
+initDB().then(iniciar);
+
 import {
   crearRecuerdo, listarRecuerdos, actualizarRecuerdo, eliminarRecuerdo,
 } from "./models/recuerdo";
