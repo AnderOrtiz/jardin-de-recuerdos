@@ -8,6 +8,7 @@ export interface Recuerdo {
     texto: string;
     fecha: string;
     emocion: Emocion;
+    foto: string | null;
 }
 
 export type NuevoRecuerdo = Omit<Recuerdo, "id">;
@@ -22,16 +23,19 @@ function filasARecuerdos(res: { columns: string[]; values: unknown[][] }[]): Rec
     });
 }
 
-// CREATE
-export function crearRecuerdo(r: NuevoRecuerdo): void {
-    getDB().run(
-        "INSERT INTO recuerdos (titulo, texto, fecha, emocion) VALUES (?, ?, ?, ?)",
-        [r.titulo, r.texto, r.fecha, r.emocion]
+// CREATE: devuelve false si no hubo espacio para guardar (y deshace el cambio)
+export function crearRecuerdo(r: NuevoRecuerdo): boolean {
+    const db = getDB();
+    db.run(
+        "INSERT INTO recuerdos (titulo, texto, fecha, emocion, foto) VALUES (?, ?, ?, ?, ?)",
+        [r.titulo, r.texto, r.fecha, r.emocion, r.foto]
     );
-    guardar();
+    if (guardar()) return true;
+    db.run("DELETE FROM recuerdos WHERE id = last_insert_rowid()");
+    return false;
 }
 
-// READ (con filtro opcional por emoción y orden por fecha)
+// READ
 export function listarRecuerdos(emocion?: Emocion | ""): Recuerdo[] {
     const sql = emocion
         ? "SELECT * FROM recuerdos WHERE emocion = ? ORDER BY fecha DESC"
@@ -45,13 +49,15 @@ export function obtenerRecuerdo(id: number): Recuerdo | undefined {
     return filasARecuerdos(res)[0];
 }
 
-// UPDATE
-export function actualizarRecuerdo(id: number, r: NuevoRecuerdo): void {
-    getDB().run(
-        "UPDATE recuerdos SET titulo = ?, texto = ?, fecha = ?, emocion = ? WHERE id = ?",
-        [r.titulo, r.texto, r.fecha, r.emocion, id]
-    );
-    guardar();
+// UPDATE: devuelve false si no hubo espacio (y restaura la versión anterior)
+export function actualizarRecuerdo(id: number, r: NuevoRecuerdo): boolean {
+    const db = getDB();
+    const antes = obtenerRecuerdo(id);
+    const sql = "UPDATE recuerdos SET titulo = ?, texto = ?, fecha = ?, emocion = ?, foto = ? WHERE id = ?";
+    db.run(sql, [r.titulo, r.texto, r.fecha, r.emocion, r.foto, id]);
+    if (guardar()) return true;
+    if (antes) db.run(sql, [antes.titulo, antes.texto, antes.fecha, antes.emocion, antes.foto, id]);
+    return false;
 }
 
 // DELETE

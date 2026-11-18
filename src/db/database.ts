@@ -1,4 +1,4 @@
-import initSqlJs, {type Database } from "sql.js";
+import initSqlJs, { type Database } from "sql.js";
 import wasmUrl from "sql.js/dist/sql-wasm.wasm?url";
 
 const KEY = "jardin-db";
@@ -27,7 +27,8 @@ export async function initDB(): Promise<Database> {
       titulo TEXT NOT NULL,
       texto TEXT,
       fecha TEXT NOT NULL,
-      emocion TEXT NOT NULL
+      emocion TEXT NOT NULL,
+      foto TEXT
     )`);
         db.run(
             `INSERT INTO recuerdos (titulo, texto, fecha, emocion) VALUES
@@ -37,13 +38,28 @@ export async function initDB(): Promise<Database> {
         );
         guardar();
     }
+    migrar()
     return db;
+}
+
+function migrar(): void {
+    const cols = db.exec("PRAGMA table_info(recuerdos)");
+    const nombres = cols[0]?.values.map((f) => f[1]) ?? [];
+    if (!nombres.includes("foto")) {
+        db.run("ALTER TABLE recuerdos ADD COLUMN foto TEXT");
+        guardar();
+    }
 }
 
 export function getDB(): Database {
     return db;
 }
 
-export function guardar(): void {
-    localStorage.setItem(KEY, aBase64(db.export()));
+export function guardar(): boolean {
+    try {
+        localStorage.setItem(KEY, aBase64(db.export()));
+        return true;
+    } catch {
+        return false;
+    }
 }
